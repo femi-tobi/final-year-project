@@ -315,7 +315,7 @@ class _IntakeScreenState extends State<IntakeScreen>
         physics: const NeverScrollableScrollPhysics(),
         crossAxisSpacing: 14,
         mainAxisSpacing: 14,
-        childAspectRatio: 2.4,
+        childAspectRatio: 1.5,
         children: [
           _VitalInput(
             controller: _hrCtr,
@@ -459,16 +459,20 @@ class _IntakeScreenState extends State<IntakeScreen>
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: const [
                   Icon(Icons.rocket_launch_rounded, size: 20),
                   SizedBox(width: 10),
-                  Text(
-                    'DISPATCH FOR INFUSED INFERENCE',
-                    style: TextStyle(
-                      fontFamily: 'Inter',
-                      fontWeight: FontWeight.w800,
-                      fontSize: 13.5,
-                      letterSpacing: 1.4,
+                  Flexible(
+                    child: Text(
+                      'DISPATCH FOR INFUSED INFERENCE',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontWeight: FontWeight.w800,
+                        fontSize: 13.5,
+                        letterSpacing: 1.0,
+                      ),
                     ),
                   ),
                 ],
@@ -551,7 +555,7 @@ class _VitalInput extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 4),
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.numberWithOptions(decimal: allowDecimal),
@@ -570,6 +574,7 @@ class _VitalInput extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             suffixText: unit,
+            isDense: true,
             suffixStyle: const TextStyle(
               fontFamily: 'Inter',
               fontSize: 11,
@@ -577,7 +582,7 @@ class _VitalInput extends StatelessWidget {
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 12,
-              vertical: 10,
+              vertical: 8,
             ),
           ),
           validator: validator,
