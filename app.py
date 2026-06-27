@@ -1,13 +1,19 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import joblib
 import pandas as pd
 import numpy as np
+
+from auth_and_extras import extras_bp   # non-ML endpoints blueprint
 
 print("=" * 65)
 print("  PHASE 3 TRIAGE API — XGBOOST MULTIMODAL ENGINE")
 print("=" * 65)
 
 app = Flask(__name__)
+CORS(app)                          # allow cross-origin requests from Flutter
+app.register_blueprint(extras_bp)  # mounts /auth/*, /patients, /metrics, /diagnostics, /analytics/*
+
 
 # =====================================================================
 # LOAD PHASE 3 TRAINED ARTIFACTS INTO RAM

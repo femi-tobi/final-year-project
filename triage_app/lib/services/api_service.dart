@@ -1,14 +1,60 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+
 import '../models/triage_result.dart';
+import '../models/auth_models.dart';
+import '../models/patient_models.dart';
 
 class ApiService {
   // Change this to your machine's IP when running on a physical mobile device.
   // For Windows desktop / emulator use 127.0.0.1.
   static const String _baseUrl = 'http://127.0.0.1:5000';
 
-  /// Sends patient vitals + symptom text to the Flask XGBoost endpoint and
-  /// returns a strongly-typed [TriageResult].
+  // ─── Auth token holder (set after login) ──────────────────────────────────
+  static String? _token;
+  static UserSession? currentSession;
+
+  static Map<String, String> get _authHeaders => {
+        'Content-Type': 'application/json',
+        if (_token != null) 'Authorization': 'Bearer $_token',
+      };
+
+  // ─── Authentication ────────────────────────────────────────────────────────
+  static Future<UserSession> login(LoginRequest req) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/auth/login'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode(req.toJson()),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final session = UserSession.fromJson(json);
+      _token = session.token;
+      currentSession = session;
+      return session;
+    } else {
+      final err = jsonDecode(response.body);
+      throw Exception(err['error'] ?? 'Login failed');
+    }
+  }
+
+  static Future<void> logout() async {
+    try {
+      await http
+          .post(
+            Uri.parse('$_baseUrl/auth/logout'),
+            headers: _authHeaders,
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {}
+    _token = null;
+    currentSession = null;
+  }
+
+  // ─── ML Prediction (unchanged) ────────────────────────────────────────────
   static Future<TriageResult> predict({
     required double age,
     required double heartRate,
@@ -31,7 +77,7 @@ class ApiService {
     final response = await http
         .post(
           uri,
-          headers: {'Content-Type': 'application/json'},
+          headers: _authHeaders,
           body: jsonEncode(payload),
         )
         .timeout(const Duration(seconds: 30));
@@ -45,7 +91,129 @@ class ApiService {
     }
   }
 
-  /// Simple health-check against GET /health.
+  // ─── Patient Queue ─────────────────────────────────────────────────────────
+  static Future<List<PatientRecord>> getQueue({String status = ''}) async {
+    final uri = Uri.parse(
+      '$_baseUrl/patients${status.isNotEmpty ? '?status=${Uri.encodeComponent(status)}' : ''}',
+    );
+    final response = await http
+        .get(uri, headers: _authHeaders)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final rawList = json['patients'] as List<dynamic>? ?? [];
+      return rawList
+          .map((e) => PatientRecord.fromJson(e as Map<String, dynamic>))
+          .toList();
+    }
+    throw Exception('Failed to load patient queue');
+  }
+
+  static Future<Map<String, dynamic>> createPatient(
+      Map<String, dynamic> data) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/patients'),
+          headers: _authHeaders,
+          body: jsonEncode(data),
+        )
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 201) {
+      return jsonDecode(response.body) as Map<String, dynamic>;
+    }
+    throw Exception('Failed to register patient');
+  }
+
+  static Future<void> confirmAllocation(
+      String patientId, String confirmedBy) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/patients/$patientId/confirm'),
+          headers: _authHeaders,
+          body: jsonEncode({'confirmed_by': confirmedBy}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to confirm allocation');
+    }
+  }
+
+  static Future<void> overrideAllocation({
+    required String patientId,
+    required String acuityLevel,
+    required String triageCategory,
+    required String reason,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/patients/$patientId/override'),
+          headers: _authHeaders,
+          body: jsonEncode({
+            'acuity_level':    acuityLevel,
+            'triage_category': triageCategory,
+            'reason':          reason,
+          }),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to apply override');
+    }
+  }
+
+  // ─── Dashboard Metrics ─────────────────────────────────────────────────────
+  static Future<QueueMetrics> getMetrics() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/metrics'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 10));
+
+    if (response.statusCode == 200) {
+      return QueueMetrics.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load metrics');
+  }
+
+  // ─── Analytics / Logs ──────────────────────────────────────────────────────
+  static Future<LogsResponse> getLogs({
+    String query = '',
+    String date = '',
+    int page = 1,
+  }) async {
+    final params = <String, String>{
+      'page': page.toString(),
+      'per_page': '12',
+      if (query.isNotEmpty) 'q': query,
+      if (date.isNotEmpty) 'date': date,
+    };
+    final uri = Uri.parse('$_baseUrl/analytics/logs')
+        .replace(queryParameters: params);
+    final response = await http
+        .get(uri, headers: _authHeaders)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return LogsResponse.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load logs');
+  }
+
+  // ─── Diagnostics ───────────────────────────────────────────────────────────
+  static Future<DiagnosticsData> getDiagnostics() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/diagnostics'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 15));
+
+    if (response.statusCode == 200) {
+      return DiagnosticsData.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load diagnostics');
+  }
+
+  // ─── Health Check ──────────────────────────────────────────────────────────
   static Future<bool> checkHealth() async {
     try {
       final response = await http

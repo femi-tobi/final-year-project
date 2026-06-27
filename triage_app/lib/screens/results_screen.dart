@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../models/triage_result.dart';
+import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 
 class ResultsScreen extends StatefulWidget {
@@ -23,6 +24,13 @@ class _ResultsScreenState extends State<ResultsScreen>
   late final Animation<double> _gaugeArc;
   late final Animation<double> _barsSlide;
   late final Animation<double> _blinkAnim;
+
+  // ─ Action state ─────────────────────────────────────────────────
+  bool _confirmed     = false;
+  bool _overridden    = false;
+  bool _actionLoading = false;
+  // Temporary local patient ID for this session (used for API calls)
+  final String _tempPatientId = 'TMP-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}';
 
   @override
   void initState() {
@@ -116,7 +124,7 @@ class _ResultsScreenState extends State<ResultsScreen>
                   const SizedBox(height: 24),
                   _buildXaiCard(),
                   const SizedBox(height: 24),
-                  _buildBackButton(context),
+                  _buildActionButtons(context),
                 ],
               ),
             ),

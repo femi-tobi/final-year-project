@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'screens/intake_screen.dart';
+import 'screens/auth_screen.dart';
 import 'theme/app_theme.dart';
 
 void main() {
@@ -35,7 +35,7 @@ class TriageApp extends StatelessWidget {
       title: 'AI Triage Gateway',
       debugShowCheckedModeBanner: false,
       theme: buildAppTheme(),
-      home: const IntakeScreen(),
+      home: const AuthScreen(),   // ← Entry point is now the auth screen
     );
   }
 }

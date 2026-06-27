@@ -2,13 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/auth_models.dart';
 import '../models/triage_result.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'results_screen.dart';
 
 class IntakeScreen extends StatefulWidget {
-  const IntakeScreen({super.key});
+  final UserSession? session;
+  const IntakeScreen({super.key, this.session});
 
   @override
   State<IntakeScreen> createState() => _IntakeScreenState();
@@ -29,6 +31,8 @@ class _IntakeScreenState extends State<IntakeScreen>
   bool _loading        = false;
   bool _serverOnline   = false;
   Timer? _healthTimer;
+  double? _liveShockIndex;
+  int _wordCount = 0;
 
   // ─── Animation ───────────────────────────────────────────────────────────
   late final AnimationController _pulseCtrl;
@@ -51,6 +55,9 @@ class _IntakeScreenState extends State<IntakeScreen>
       const Duration(seconds: 15),
       (_) => _checkServer(),
     );
+    _hrCtr.addListener(_updateShockIndex);
+    _sbpCtr.addListener(_updateShockIndex);
+    _symptomCtr.addListener(_updateWordCount);
   }
 
   @override
@@ -61,6 +68,22 @@ class _IntakeScreenState extends State<IntakeScreen>
       c.dispose();
     }
     super.dispose();
+  }
+
+  void _updateShockIndex() {
+    final hr  = double.tryParse(_hrCtr.text.trim());
+    final sbp = double.tryParse(_sbpCtr.text.trim());
+    if (hr != null && sbp != null && sbp > 0) {
+      setState(() => _liveShockIndex = hr / sbp);
+    } else {
+      setState(() => _liveShockIndex = null);
+    }
+  }
+
+  void _updateWordCount() {
+    final words = _symptomCtr.text.trim().split(RegExp(r'\s+'));
+    final count = _symptomCtr.text.trim().isEmpty ? 0 : words.length;
+    if (count != _wordCount) setState(() => _wordCount = count);
   }
 
   Future<void> _checkServer() async {
@@ -143,6 +166,8 @@ class _IntakeScreenState extends State<IntakeScreen>
                     _buildDemographicsRow(),
                     const SizedBox(height: 24),
                     _buildVitalsGrid(),
+                    if (_liveShockIndex != null) ...
+                      [const SizedBox(height: 16), _buildShockIndexCard()],
                     const SizedBox(height: 24),
                     _buildSymptomsField(),
                     const SizedBox(height: 28),
@@ -378,39 +403,128 @@ class _IntakeScreenState extends State<IntakeScreen>
     };
   }
 
-  // ─── Symptoms ─────────────────────────────────────────────────────────────
-  Widget _buildSymptomsField() {
-    return _SectionCard(
-      label: 'CHIEF COMPLAINT / UNSTRUCTURED CLINICAL NOTES',
-      child: TextFormField(
-        controller: _symptomCtr,
-        maxLines: 5,
-        style: const TextStyle(
-          fontFamily: 'Inter',
-          fontSize: 14,
-          color: AppColors.textPrimary,
-          height: 1.55,
-        ),
-        decoration: InputDecoration(
-          hintText:
-              'e.g. "severe crushing chest pressure, shortness of breath, diaphoresis…"',
-          hintMaxLines: 3,
-          prefixIcon: Padding(
-            padding: const EdgeInsets.only(left: 12, right: 8, top: 12),
-            child: Icon(
-              Icons.notes_rounded,
-              color: AppColors.clinicalTealLight.withOpacity(0.7),
-              size: 20,
+  // ─── Shock Index Live Card ────────────────────────────────────────────────
+  Widget _buildShockIndexCard() {
+    final si = _liveShockIndex!;
+    Color siColor;
+    String siLabel;
+    if (si >= 1.0) {
+      siColor = AppColors.emergency;
+      siLabel = 'CRITICAL — Immediate haemodynamic intervention';
+    } else if (si >= 0.7) {
+      siColor = AppColors.urgent;
+      siLabel = 'BORDERLINE — Cardiovascular monitoring advised';
+    } else {
+      siColor = AppColors.normalGreen;
+      siLabel = 'NORMAL — Haemodynamic stability maintained';
+    }
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: siColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: siColor.withOpacity(0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.monitor_heart_rounded, color: siColor, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'LIVE SHOCK INDEX (HR ÷ SBP)',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 9.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textMuted,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  siLabel,
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11.5,
+                    color: siColor,
+                  ),
+                ),
+              ],
             ),
           ),
-          prefixIconConstraints: const BoxConstraints(
-            minWidth: 44,
-            minHeight: 0,
+          Text(
+            si.toStringAsFixed(2),
+            style: TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 24,
+              fontWeight: FontWeight.w900,
+              color: siColor,
+              letterSpacing: -1,
+            ),
           ),
-          alignLabelWithHint: true,
-        ),
-        validator: (v) =>
-            (v == null || v.trim().isEmpty) ? 'Enter clinical notes' : null,
+        ],
+      ),
+    );
+  }
+
+  // ─── Symptoms ─────────────────────────────────────────────────────────────
+  Widget _buildSymptomsField() {
+    final bool overLimit = _wordCount > 150;
+    return _SectionCard(
+      label: 'CHIEF COMPLAINT / UNSTRUCTURED CLINICAL NOTES',
+      child: Column(
+        children: [
+          TextFormField(
+            controller: _symptomCtr,
+            maxLines: 5,
+            style: const TextStyle(
+              fontFamily: 'Inter',
+              fontSize: 14,
+              color: AppColors.textPrimary,
+              height: 1.55,
+            ),
+            decoration: InputDecoration(
+              hintText:
+                  'e.g. "severe crushing chest pressure, shortness of breath, diaphoresis…"',
+              hintMaxLines: 3,
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(left: 12, right: 8, top: 12),
+                child: Icon(
+                  Icons.notes_rounded,
+                  color: AppColors.clinicalTealLight.withOpacity(0.7),
+                  size: 20,
+                ),
+              ),
+              prefixIconConstraints: const BoxConstraints(
+                minWidth: 44,
+                minHeight: 0,
+              ),
+              alignLabelWithHint: true,
+            ),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Enter clinical notes';
+              if (_wordCount > 150) return 'Max 150 words exceeded';
+              return null;
+            },
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '$_wordCount / 150 words',
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: overLimit ? AppColors.emergency : AppColors.textMuted,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -461,17 +575,17 @@ class _IntakeScreenState extends State<IntakeScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.rocket_launch_rounded, size: 20),
+                  Icon(Icons.biotech_rounded, size: 20),
                   SizedBox(width: 10),
                   Flexible(
                     child: Text(
-                      'DISPATCH FOR INFUSED INFERENCE',
+                      'ANALYZE PATIENT',
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontFamily: 'Inter',
                         fontWeight: FontWeight.w800,
                         fontSize: 13.5,
-                        letterSpacing: 1.0,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
