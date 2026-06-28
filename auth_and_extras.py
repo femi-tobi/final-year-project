@@ -64,6 +64,26 @@ _SESSIONS: dict = {}
 # Patient records store
 _PATIENT_STORE: list = []
 
+# ─── Bed store ────────────────────────────────────────────────────────────────
+# Each bed: { id, name, ward, status: "Available"|"Occupied", patient_id, patient_name }
+_BED_STORE: list = [
+    {"id": "BED-001", "name": "Resus Bay 1",   "ward": "Resuscitation", "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-002", "name": "Resus Bay 2",   "ward": "Resuscitation", "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-003", "name": "Trauma 1",      "ward": "Trauma",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-004", "name": "Trauma 2",      "ward": "Trauma",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-005", "name": "Majors Bay A",  "ward": "Majors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-006", "name": "Majors Bay B",  "ward": "Majors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-007", "name": "Majors Bay C",  "ward": "Majors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-008", "name": "Majors Bay D",  "ward": "Majors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-009", "name": "Minors 1",      "ward": "Minors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-010", "name": "Minors 2",      "ward": "Minors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-011", "name": "Minors 3",      "ward": "Minors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-012", "name": "Minors 4",      "ward": "Minors",        "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-013", "name": "Obs Bay 1",     "ward": "Observation",   "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-014", "name": "Obs Bay 2",     "ward": "Observation",   "status": "Available", "patient_id": None, "patient_name": None},
+    {"id": "BED-015", "name": "Isolation 1",   "ward": "Isolation",     "status": "Available", "patient_id": None, "patient_name": None},
+]
+
 # Pre-seed with realistic demo patients so the queue is never empty
 def _seed_patients():
     """Populate the queue with 12 realistic demo patients."""
@@ -83,6 +103,17 @@ def _seed_patients():
     ]
     for i, (name, age, category, level, complaint) in enumerate(demo):
         wait_minutes = random.randint(3, 95)
+        status = "Waiting" if i < 8 else random.choice(["In Treatment", "Discharged"])
+        # Assign a bed to "In Treatment" demo patients
+        bed_id, bed_name = None, None
+        if status == "In Treatment" and _BED_STORE:
+            free_bed = next((b for b in _BED_STORE if b["status"] == "Available"), None)
+            if free_bed:
+                free_bed["status"]       = "Occupied"
+                free_bed["patient_id"]   = f"DEMO-{i:03d}"
+                free_bed["patient_name"] = name
+                bed_id   = free_bed["id"]
+                bed_name = free_bed["name"]
         _PATIENT_STORE.append({
             "id":            str(uuid.uuid4())[:8].upper(),
             "name":          name,
@@ -90,7 +121,7 @@ def _seed_patients():
             "triage_category": category,
             "acuity_level":  level,
             "chief_complaint": complaint,
-            "status":        "Waiting" if i < 8 else random.choice(["In Treatment", "Discharged"]),
+            "status":        status,
             "arrived_at":    (datetime.utcnow() - timedelta(minutes=wait_minutes)).isoformat() + "Z",
             "wait_minutes":  wait_minutes,
             "confidence":    round(random.uniform(82, 99), 1),
@@ -103,6 +134,8 @@ def _seed_patients():
             "confirmed_by":  None,
             "outcome":       None if i < 8 else random.choice(["Admitted", "Discharged", "Transferred"]),
             "turnaround_min": None if i < 8 else random.randint(20, 180),
+            "bed_id":        bed_id,
+            "bed_name":      bed_name,
         })
 
 
@@ -217,6 +250,8 @@ def create_patient():
         "confirmed_by":    None,
         "outcome":         None,
         "turnaround_min":  None,
+        "bed_id":          None,
+        "bed_name":        None,
     }
     _PATIENT_STORE.append(new_patient)
     return jsonify({"message": "Patient registered", "patient_id": patient_id, "patient": new_patient}), 201
@@ -242,6 +277,46 @@ def confirm_allocation(patient_id):
     return jsonify({"message": "Allocation confirmed", "patient": patient}), 200
 
 
+@extras_bp.route("/patients/<patient_id>/assign-bed", methods=["POST"])
+def assign_bed(patient_id):
+    """Doctor assigns a patient to a specific bed.
+    Body: { bed_id: "BED-003", assigned_by: "Dr. Name" }
+    Effect: patient.status -> "In Treatment", bed.status -> "Occupied"
+    """
+    patient = next((p for p in _PATIENT_STORE if p["id"] == patient_id.upper()), None)
+    if not patient:
+        return jsonify({"error": "Patient not found"}), 404
+
+    data   = request.json or {}
+    bed_id = str(data.get("bed_id", "")).strip().upper()
+    bed    = next((b for b in _BED_STORE if b["id"] == bed_id), None)
+    if not bed:
+        return jsonify({"error": f"Bed '{bed_id}' not found"}), 404
+    if bed["status"] == "Occupied":
+        return jsonify({"error": f"Bed '{bed['name']}' is already occupied"}), 409
+
+    # Release old bed if patient had one
+    if patient.get("bed_id"):
+        old_bed = next((b for b in _BED_STORE if b["id"] == patient["bed_id"]), None)
+        if old_bed:
+            old_bed["status"]       = "Available"
+            old_bed["patient_id"]   = None
+            old_bed["patient_name"] = None
+
+    # Assign new bed
+    bed["status"]       = "Occupied"
+    bed["patient_id"]   = patient["id"]
+    bed["patient_name"] = patient["name"]
+
+    patient["bed_id"]      = bed["id"]
+    patient["bed_name"]    = bed["name"]
+    patient["status"]      = "In Treatment"
+    patient["confirmed_by"] = data.get("assigned_by", "Doctor")
+
+    return jsonify({"message": f"Bed '{bed['name']}' assigned to {patient['name']}",
+                    "patient": patient, "bed": bed}), 200
+
+
 @extras_bp.route("/patients/<patient_id>/override", methods=["POST"])
 def override_allocation(patient_id):
     patient = next((p for p in _PATIENT_STORE if p["id"] == patient_id.upper()), None)
@@ -265,6 +340,43 @@ def override_allocation(patient_id):
     patient["triage_category"] = new_category
 
     return jsonify({"message": "Override applied", "patient": patient}), 200
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BED MANAGEMENT ENDPOINTS
+# ─────────────────────────────────────────────────────────────────────────────
+@extras_bp.route("/beds", methods=["GET"])
+def get_beds():
+    """Returns all beds with their current status."""
+    available = [b for b in _BED_STORE if b["status"] == "Available"]
+    occupied  = [b for b in _BED_STORE if b["status"] == "Occupied"]
+    return jsonify({
+        "beds":            _BED_STORE,
+        "total":           len(_BED_STORE),
+        "available_count": len(available),
+        "occupied_count":  len(occupied),
+    }), 200
+
+
+@extras_bp.route("/beds/<bed_id>/release", methods=["POST"])
+def release_bed(bed_id):
+    """Admin/Doctor marks a bed as available (patient discharged)."""
+    bed = next((b for b in _BED_STORE if b["id"] == bed_id.upper()), None)
+    if not bed:
+        return jsonify({"error": "Bed not found"}), 404
+
+    # Also update the patient record if linked
+    if bed["patient_id"]:
+        patient = next((p for p in _PATIENT_STORE if p["id"] == bed["patient_id"]), None)
+        if patient:
+            patient["bed_id"]   = None
+            patient["bed_name"] = None
+            patient["status"]   = "Discharged"
+
+    bed["status"]       = "Available"
+    bed["patient_id"]   = None
+    bed["patient_name"] = None
+    return jsonify({"message": f"Bed '{bed['name']}' released", "bed": bed}), 200
 
 
 # ─────────────────────────────────────────────────────────────────────────────
