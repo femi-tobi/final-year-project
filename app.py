@@ -22,11 +22,11 @@ try:
     model  = joblib.load('phase3_model.pkl')
     scaler = joblib.load('phase3_scaler.pkl')
     tfidf  = joblib.load('phase3_tfidf.pkl')
-    print("\n  ✓ All Phase 3 ML artifacts loaded successfully.")
-    print(f"  ✓ TF-IDF vocabulary size: {len(tfidf.vocabulary_)} terms")
+    print("\n  [OK] All Phase 3 ML artifacts loaded successfully.")
+    print(f"  [OK] TF-IDF vocabulary size: {len(tfidf.vocabulary_)} terms")
 except Exception as e:
     print(f"\n  CRITICAL ERROR LOADING ARTIFACTS: {str(e)}")
-    print("  → Run `python phase3_upgraded_engine.py` first to generate the artifacts.")
+    print("  [ERROR] Run `python phase3_upgraded_engine.py` first to generate the artifacts.")
 
 # Feature column names — must match training order exactly
 NUMERICAL_COLS = [

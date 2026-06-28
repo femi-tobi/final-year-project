@@ -152,8 +152,12 @@ model_xgb = XGBClassifier(
     n_jobs=-1                   # Use all CPU cores
 )
 
+from sklearn.utils.class_weight import compute_sample_weight
+sample_weights = compute_sample_weight(class_weight='balanced', y=y_train)
+
 model_xgb.fit(
     X_train_final, y_train,
+    sample_weight=sample_weights,
     eval_set=[(X_test_final, y_test)],
     verbose=100                 # Print progress every 100 rounds
 )
@@ -218,8 +222,8 @@ joblib.dump(model_xgb, 'phase3_model.pkl')
 joblib.dump(scaler,    'phase3_scaler.pkl')
 joblib.dump(tfidf,     'phase3_tfidf.pkl')
 
-print("\n  ✓ phase3_model.pkl   — XGBoost classifier")
-print("  ✓ phase3_scaler.pkl  — StandardScaler (11 features)")
-print("  ✓ phase3_tfidf.pkl   — TF-IDF bigram vectorizer (150 features)")
+print("\n  [OK] phase3_model.pkl   - XGBoost classifier")
+print("  [OK] phase3_scaler.pkl  - StandardScaler (11 features)")
+print("  [OK] phase3_tfidf.pkl   - TF-IDF bigram vectorizer (150 features)")
 print("\n  Phase 3 training complete. Run `python app.py` to serve the upgraded model.")
 print("=" * 65)
