@@ -301,22 +301,10 @@ class _LogRow extends StatelessWidget {
               ),
             ),
           ),
-          // Status
+          // Status badge
           Expanded(
             flex: 2,
-            child: Text(
-              patient.status,
-              style: TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
-                color: patient.status == 'Discharged'
-                    ? AppColors.normalGreen
-                    : patient.status == 'In Treatment'
-                        ? AppColors.clinicalTealLight
-                        : AppColors.textSecondary,
-              ),
-            ),
+            child: _StatusBadge(status: patient.status),
           ),
           // Wait time or turnaround
           Expanded(
@@ -329,6 +317,61 @@ class _LogRow extends StatelessWidget {
                 fontFamily: 'Inter',
                 fontSize: 11,
                 color: AppColors.textSecondary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Status Badge ─────────────────────────────────────────────────────────────
+class _StatusBadge extends StatelessWidget {
+  final String status;
+  const _StatusBadge({required this.status});
+
+  Color get _bgColor {
+    switch (status) {
+      case 'Discharged':   return const Color(0xFF22C55E);
+      case 'In Treatment': return AppColors.clinicalTealLight;
+      case 'Waiting':      return const Color(0xFFF59E0B);
+      default:             return AppColors.textMuted;
+    }
+  }
+
+  IconData get _icon {
+    switch (status) {
+      case 'Discharged':   return Icons.check_circle_outline_rounded;
+      case 'In Treatment': return Icons.medical_services_outlined;
+      case 'Waiting':      return Icons.hourglass_top_rounded;
+      default:             return Icons.help_outline_rounded;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: _bgColor.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _bgColor.withOpacity(0.4)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(_icon, size: 10, color: _bgColor),
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              status,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                color: _bgColor,
               ),
             ),
           ),

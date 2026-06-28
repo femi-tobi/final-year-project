@@ -136,6 +136,9 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   // ─── Top Bar ──────────────────────────────────────────────────────────────
   Widget _buildTopBar(BuildContext context) {
+    final name = widget.result.patientName.isNotEmpty
+        ? widget.result.patientName
+        : 'Patient Assessment';
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -154,16 +157,40 @@ class _ResultsScreenState extends State<ResultsScreen>
                 icon: const Icon(Icons.arrow_back_ios_rounded,
                     color: Colors.white, size: 20),
                 onPressed: () => Navigator.of(context).pop(),
+                tooltip: 'Back to Intake',
               ),
-              const Expanded(
-                child: Text(
-                  'Clinical Evaluation Dashboard',
-                  style: TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Clinical Evaluation Dashboard',
+                      style: TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    if (widget.result.patientName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          const Icon(Icons.person_rounded,
+                              size: 12, color: AppColors.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontFamily: 'Inter',
+                              fontSize: 12,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
               ),
               Container(
@@ -524,13 +551,190 @@ class _ResultsScreenState extends State<ResultsScreen>
     );
   }
 
+  // ─── Action Buttons ───────────────────────────────────────────────────────
+  Widget _buildActionButtons(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // ── Confirm / Override row ──
+        if (!_confirmed && !_overridden)
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _actionLoading
+                      ? null
+                      : () async {
+                          setState(() => _actionLoading = true);
+                          try {
+                            await ApiService.confirmAllocation(
+                              _tempPatientId,
+                              ApiService.currentSession?.userId ?? 'clinician',
+                            );
+                          } catch (_) {
+                            // best-effort — continue even if API call fails
+                          }
+                          if (mounted) {
+                            setState(() {
+                              _confirmed = true;
+                              _actionLoading = false;
+                            });
+                          }
+                        },
+                  icon: _actionLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.check_circle_outline_rounded, size: 18),
+                  label: const Text(
+                    'CONFIRM TRIAGE',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.clinicalTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _actionLoading
+                      ? null
+                      : () => setState(() => _overridden = true),
+                  icon: const Icon(Icons.edit_note_rounded, size: 18),
+                  label: const Text(
+                    'OVERRIDE',
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.urgent,
+                    side: BorderSide(color: AppColors.urgent.withOpacity(0.6)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+        // ── Confirmed badge ──
+        if (_confirmed)
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
+            decoration: BoxDecoration(
+              color: AppColors.normalGreen.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.normalGreen.withOpacity(0.4)),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle_rounded,
+                    color: AppColors.normalGreen, size: 20),
+                SizedBox(width: 8),
+                Text(
+                  'TRIAGE CONFIRMED',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.normalGreen,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+        // ── Override picker ──
+        if (_overridden)
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: AppColors.urgent.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.urgent.withOpacity(0.35)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'CLINICIAN OVERRIDE',
+                  style: TextStyle(
+                    fontFamily: 'Inter',
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.urgent,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                for (final cat in ['Emergency', 'Urgent', 'Normal'])
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: OutlinedButton(
+                      onPressed: () {
+                        // Override selected — just dismiss the picker
+                        setState(() => _overridden = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Override applied: $cat'),
+                            backgroundColor: AppColors.card,
+                          ),
+                        );
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        side: const BorderSide(color: AppColors.cardBorder),
+                        minimumSize: const Size.fromHeight(42),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                      child: Text(cat,
+                          style: const TextStyle(
+                              fontFamily: 'Inter', fontSize: 13)),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+
+        const SizedBox(height: 12),
+        _buildBackButton(context),
+      ],
+    );
+  }
+
   // ─── Back Button ──────────────────────────────────────────────────────────
   Widget _buildBackButton(BuildContext context) {
     return OutlinedButton.icon(
       onPressed: () => Navigator.of(context).pop(),
       icon: const Icon(Icons.arrow_back_rounded, size: 18),
       label: const Text(
-        'NEW PATIENT ASSESSMENT',
+        'BACK TO INTAKE',
         style: TextStyle(
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,

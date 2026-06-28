@@ -61,6 +61,8 @@ class TriageResult {
   final ClassProbabilities classProbabilities;
   final String clinicalExplanation;
   final MetricsAnalyzed metricsAnalyzed;
+  /// Patient name entered during intake (not from API JSON — injected locally)
+  final String patientName;
 
   const TriageResult({
     required this.triageCategory,
@@ -68,7 +70,17 @@ class TriageResult {
     required this.classProbabilities,
     required this.clinicalExplanation,
     required this.metricsAnalyzed,
+    this.patientName = '',
   });
+
+  TriageResult copyWith({String? patientName}) => TriageResult(
+        triageCategory:      triageCategory,
+        confidenceScore:     confidenceScore,
+        classProbabilities:  classProbabilities,
+        clinicalExplanation: clinicalExplanation,
+        metricsAnalyzed:     metricsAnalyzed,
+        patientName:         patientName ?? this.patientName,
+      );
 
   factory TriageResult.fromJson(Map<String, dynamic> json) {
     double _parseScore(String? val) =>

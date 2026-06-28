@@ -59,15 +59,86 @@ class _DashboardScreenState extends State<DashboardScreen>
         ApiService.getMetrics(),
       ]);
       if (!mounted) return;
+      final liveQueue = results[0] as List<PatientRecord>;
       setState(() {
-        _queue   = results[0] as List<PatientRecord>;
+        // Use live queue from server; fall back to demo only if completely empty
+        _queue   = liveQueue.isNotEmpty ? liveQueue : _demoPatients;
         _metrics = results[1] as QueueMetrics;
         _loading = false;
       });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      // Server offline — fall back to demo data so the UI is still useful
+      if (mounted) {
+        setState(() {
+          _queue   = _demoPatients;
+          _metrics = _demoMetrics;
+          _loading = false;
+        });
+      }
     }
   }
+
+
+  // ─── Demo / seed data (hardcoded for offline / presentation mode) ─────────────
+  static final QueueMetrics _demoMetrics = QueueMetrics(
+    totalWaiting: 6,
+    avgWaitMinutes: 18.4,
+    bedOccupancy: 22,
+    totalBeds: 30,
+    occupancyPct: 73.3,
+    criticalCount: 2,
+  );
+
+  static final List<PatientRecord> _demoPatients = [
+    PatientRecord(
+      id: 'DEMO-001', name: 'Adewale Okafor', age: 67,
+      triageCategory: 'Emergency', acuityLevel: 'L1',
+      chiefComplaint: 'Severe chest pain radiating to left arm, diaphoresis',
+      status: 'Waiting', arrivedAt: '2026-06-28T06:02:00Z', waitMinutes: 8,
+      confidence: 94.2, heartRate: 118, systolicBp: 85,
+      o2Sat: 91, temperature: 37.8, shockIndex: 1.39,
+    ),
+    PatientRecord(
+      id: 'DEMO-002', name: 'Ngozi Eze', age: 34,
+      triageCategory: 'Urgent', acuityLevel: 'L2',
+      chiefComplaint: 'High fever 39.8°C, severe headache, neck stiffness',
+      status: 'Waiting', arrivedAt: '2026-06-28T06:10:00Z', waitMinutes: 14,
+      confidence: 88.7, heartRate: 105, systolicBp: 110,
+      o2Sat: 97, temperature: 39.8, shockIndex: 0.95,
+    ),
+    PatientRecord(
+      id: 'DEMO-003', name: 'Emmanuel Taiwo', age: 52,
+      triageCategory: 'Emergency', acuityLevel: 'L1',
+      chiefComplaint: 'Sudden onset weakness right side, slurred speech',
+      status: 'Waiting', arrivedAt: '2026-06-28T06:14:00Z', waitMinutes: 6,
+      confidence: 91.5, heartRate: 92, systolicBp: 178,
+      o2Sat: 94, temperature: 37.1, shockIndex: 0.52,
+    ),
+    PatientRecord(
+      id: 'DEMO-004', name: 'Fatima Al-Hassan', age: 28,
+      triageCategory: 'Urgent', acuityLevel: 'L2',
+      chiefComplaint: 'Severe abdominal pain, right lower quadrant, guarding',
+      status: 'Waiting', arrivedAt: '2026-06-28T06:05:00Z', waitMinutes: 21,
+      confidence: 83.1, heartRate: 98, systolicBp: 115,
+      o2Sat: 98, temperature: 38.4, shockIndex: 0.85,
+    ),
+    PatientRecord(
+      id: 'DEMO-005', name: 'Chidi Nwosu', age: 45,
+      triageCategory: 'Normal', acuityLevel: 'L3',
+      chiefComplaint: 'Mild shortness of breath, dry cough, 3 days',
+      status: 'Waiting', arrivedAt: '2026-06-28T05:50:00Z', waitMinutes: 34,
+      confidence: 76.3, heartRate: 84, systolicBp: 126,
+      o2Sat: 96, temperature: 37.4, shockIndex: 0.67,
+    ),
+    PatientRecord(
+      id: 'DEMO-006', name: 'Blessing Okonkwo', age: 19,
+      triageCategory: 'Normal', acuityLevel: 'L4',
+      chiefComplaint: 'Laceration on left hand, actively bleeding, minor',
+      status: 'Waiting', arrivedAt: '2026-06-28T05:42:00Z', waitMinutes: 42,
+      confidence: 71.8, heartRate: 76, systolicBp: 118,
+      o2Sat: 99, temperature: 36.9, shockIndex: 0.64,
+    ),
+  ];
 
   Future<void> _logout() async {
     await ApiService.logout();

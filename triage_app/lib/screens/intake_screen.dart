@@ -20,6 +20,7 @@ class _IntakeScreenState extends State<IntakeScreen>
     with SingleTickerProviderStateMixin {
   // ─── Controllers ─────────────────────────────────────────────────────────
   final _formKey      = GlobalKey<FormState>();
+  final _nameCtr      = TextEditingController();
   final _ageCtr       = TextEditingController();
   final _hrCtr        = TextEditingController();
   final _sbpCtr       = TextEditingController();
@@ -64,7 +65,7 @@ class _IntakeScreenState extends State<IntakeScreen>
   void dispose() {
     _pulseCtrl.dispose();
     _healthTimer?.cancel();
-    for (final c in [_ageCtr, _hrCtr, _sbpCtr, _tempCtr, _o2Ctr, _symptomCtr]) {
+    for (final c in [_nameCtr, _ageCtr, _hrCtr, _sbpCtr, _tempCtr, _o2Ctr, _symptomCtr]) {
       c.dispose();
     }
     super.dispose();
@@ -96,15 +97,53 @@ class _IntakeScreenState extends State<IntakeScreen>
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
+    // Capture field values before async gap
+    final name        = _nameCtr.text.trim().isNotEmpty ? _nameCtr.text.trim() : 'Unknown Patient';
+    final age         = double.parse(_ageCtr.text.trim());
+    final heartRate   = double.parse(_hrCtr.text.trim());
+    final systolicBp  = double.parse(_sbpCtr.text.trim());
+    final temperature = double.parse(_tempCtr.text.trim());
+    final o2Sat       = double.parse(_o2Ctr.text.trim());
+    final symptomText = _symptomCtr.text.trim();
+
     try {
-      final result = await ApiService.predict(
-        age:         double.parse(_ageCtr.text.trim()),
-        heartRate:   double.parse(_hrCtr.text.trim()),
-        systolicBp:  double.parse(_sbpCtr.text.trim()),
-        temperature: double.parse(_tempCtr.text.trim()),
-        o2Sat:       double.parse(_o2Ctr.text.trim()),
-        symptomText: _symptomCtr.text.trim(),
+      // ── 1. Run ML prediction ────────────────────────────────────────────
+      final rawResult = await ApiService.predict(
+        age:         age,
+        heartRate:   heartRate,
+        systolicBp:  systolicBp,
+        temperature: temperature,
+        o2Sat:       o2Sat,
+        symptomText: symptomText,
       );
+      final result = rawResult.copyWith(patientName: name);
+
+      // ── 2. Map triage category → acuity level ──────────────────────────
+      String acuityLevel;
+      switch (result.triageCategory) {
+        case 'Emergency': acuityLevel = 'L1'; break;
+        case 'Urgent':    acuityLevel = 'L2'; break;
+        default:          acuityLevel = 'L3'; break;
+      }
+
+      // ── 3. Persist patient to the backend queue (best-effort) ──────────
+      try {
+        await ApiService.createPatient({
+          'name':             name,
+          'age':              age.toInt(),
+          'triage_category':  result.triageCategory,
+          'acuity_level':     acuityLevel,
+          'chief_complaint':  symptomText,
+          'confidence':       result.confidenceScore,
+          'heart_rate':       heartRate,
+          'systolic_bp':      systolicBp,
+          'o2_sat':           o2Sat,
+          'temperature':      temperature,
+          'shock_index':      result.metricsAnalyzed.shockIndex,
+        });
+      } catch (_) {
+        // Best-effort — patient still proceeds to results even if save fails
+      }
 
       if (!mounted) return;
       Navigator.of(context).push(
@@ -206,9 +245,29 @@ class _IntakeScreenState extends State<IntakeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Title row
+              // Title row with back button
               Row(
                 children: [
+                  // Back button
+                  GestureDetector(
+                    onTap: () => Navigator.of(context).maybePop(),
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.15),
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.arrow_back_ios_rounded,
+                        color: Colors.white,
+                        size: 18,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
@@ -313,19 +372,37 @@ class _IntakeScreenState extends State<IntakeScreen>
   Widget _buildDemographicsRow() {
     return _SectionCard(
       label: 'PATIENT DEMOGRAPHICS',
-      child: _VitalInput(
-        controller: _ageCtr,
-        label: 'Age',
-        hint: 'e.g. 45',
-        icon: Icons.person_outline_rounded,
-        unit: 'yrs',
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-        validator: (v) {
-          if (v == null || v.isEmpty) return 'Required';
-          final n = int.tryParse(v);
-          if (n == null || n < 1 || n > 120) return '1–120';
-          return null;
-        },
+      child: Column(
+        children: [
+          // Patient Name
+          _TextInput(
+            controller: _nameCtr,
+            label: 'Patient Full Name',
+            hint: 'e.g. John Doe',
+            icon: Icons.badge_outlined,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Patient name is required';
+              if (v.trim().length < 2) return 'Enter a valid name';
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+          // Age
+          _VitalInput(
+            controller: _ageCtr,
+            label: 'Age',
+            hint: 'e.g. 45',
+            icon: Icons.cake_outlined,
+            unit: 'yrs',
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            validator: (v) {
+              if (v == null || v.isEmpty) return 'Required';
+              final n = int.tryParse(v);
+              if (n == null || n < 1 || n > 120) return '1–120';
+              return null;
+            },
+          ),
+        ],
       ),
     );
   }
@@ -618,6 +695,69 @@ class _SectionCard extends StatelessWidget {
             border: Border.all(color: AppColors.cardBorder),
           ),
           child: child,
+        ),
+      ],
+    );
+  }
+}
+
+// ─── General Text Input (for name, etc.) ─────────────────────────────────────
+class _TextInput extends StatelessWidget {
+  final TextEditingController controller;
+  final String label;
+  final String hint;
+  final IconData icon;
+  final String? Function(String?)? validator;
+
+  const _TextInput({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.icon,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(icon, size: 14, color: AppColors.clinicalTealLight),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontFamily: 'Inter',
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textSecondary,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        TextFormField(
+          controller: controller,
+          keyboardType: TextInputType.name,
+          textCapitalization: TextCapitalization.words,
+          style: const TextStyle(
+            fontFamily: 'Inter',
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+          decoration: InputDecoration(
+            hintText: hint,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+          ),
+          validator: validator,
         ),
       ],
     );
