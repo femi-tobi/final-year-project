@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 import '../models/triage_result.dart';
 import '../models/auth_models.dart';
-import '../models/patient_models.dart';
+import '../models/patient_models.dart'; // includes PatientRecord, QueueMetrics, BedResponse
 
 class ApiService {
   // Change this to your machine's IP when running on a physical mobile device.
@@ -222,6 +222,48 @@ class ApiService {
       return response.statusCode == 200;
     } catch (_) {
       return false;
+    }
+  }
+
+  // ─── Bed Management ────────────────────────────────────────────────────────
+  static Future<BedResponse> getBeds() async {
+    final response = await http
+        .get(Uri.parse('$_baseUrl/beds'), headers: _authHeaders)
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode == 200) {
+      return BedResponse.fromJson(
+          jsonDecode(response.body) as Map<String, dynamic>);
+    }
+    throw Exception('Failed to load bed data');
+  }
+
+  static Future<void> assignBed({
+    required String patientId,
+    required String bedId,
+    required String assignedBy,
+  }) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/patients/$patientId/assign-bed'),
+          headers: _authHeaders,
+          body: jsonEncode({'bed_id': bedId, 'assigned_by': assignedBy}),
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode != 200) {
+      final err = jsonDecode(response.body);
+      throw Exception(err['error'] ?? 'Failed to assign bed');
+    }
+  }
+
+  static Future<void> releaseBed(String bedId) async {
+    final response = await http
+        .post(
+          Uri.parse('$_baseUrl/beds/$bedId/release'),
+          headers: _authHeaders,
+        )
+        .timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) {
+      throw Exception('Failed to release bed');
     }
   }
 }

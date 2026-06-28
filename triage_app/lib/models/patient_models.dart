@@ -20,6 +20,8 @@ class PatientRecord {
   final double shockIndex;
   final String? outcome;
   final int? turnaroundMin;
+  final String? bedId;
+  final String? bedName;
 
   const PatientRecord({
     required this.id,
@@ -39,6 +41,8 @@ class PatientRecord {
     required this.shockIndex,
     this.outcome,
     this.turnaroundMin,
+    this.bedId,
+    this.bedName,
   });
 
   factory PatientRecord.fromJson(Map<String, dynamic> json) {
@@ -60,6 +64,8 @@ class PatientRecord {
       shockIndex:     (json['shock_index'] as num?)?.toDouble() ?? 0,
       outcome:        json['outcome']          as String?,
       turnaroundMin:  (json['turnaround_min'] as num?)?.toInt(),
+      bedId:          json['bed_id']           as String?,
+      bedName:        json['bed_name']         as String?,
     );
   }
 }
@@ -202,6 +208,63 @@ class LogsResponse {
       total: (json['total'] as num?)?.toInt() ?? 0,
       page:  (json['page']  as num?)?.toInt() ?? 1,
       pages: (json['pages'] as num?)?.toInt() ?? 1,
+    );
+  }
+}
+
+// ─── Bed Info ─────────────────────────────────────────────────────────────────
+class BedInfo {
+  final String id;
+  final String name;
+  final String ward;
+  final String status;        // "Available" | "Occupied"
+  final String? patientId;
+  final String? patientName;
+
+  bool get isAvailable => status == 'Available';
+
+  const BedInfo({
+    required this.id,
+    required this.name,
+    required this.ward,
+    required this.status,
+    this.patientId,
+    this.patientName,
+  });
+
+  factory BedInfo.fromJson(Map<String, dynamic> json) {
+    return BedInfo(
+      id:          json['id']           as String? ?? '',
+      name:        json['name']         as String? ?? '',
+      ward:        json['ward']         as String? ?? '',
+      status:      json['status']       as String? ?? 'Available',
+      patientId:   json['patient_id']   as String?,
+      patientName: json['patient_name'] as String?,
+    );
+  }
+}
+
+// ─── Bed Response ─────────────────────────────────────────────────────────────
+class BedResponse {
+  final List<BedInfo> beds;
+  final int total;
+  final int availableCount;
+  final int occupiedCount;
+
+  const BedResponse({
+    required this.beds,
+    required this.total,
+    required this.availableCount,
+    required this.occupiedCount,
+  });
+
+  factory BedResponse.fromJson(Map<String, dynamic> json) {
+    final rawBeds = json['beds'] as List<dynamic>? ?? [];
+    return BedResponse(
+      beds:           rawBeds.map((b) => BedInfo.fromJson(b as Map<String, dynamic>)).toList(),
+      total:          (json['total']           as num?)?.toInt() ?? 0,
+      availableCount: (json['available_count'] as num?)?.toInt() ?? 0,
+      occupiedCount:  (json['occupied_count']  as num?)?.toInt() ?? 0,
     );
   }
 }
