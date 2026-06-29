@@ -1,3 +1,5 @@
+import 'patient_models.dart';
+
 class ClassProbabilities {
   final double normal;
   final double urgent;
@@ -96,6 +98,54 @@ class TriageResult {
       metricsAnalyzed: MetricsAnalyzed.fromJson(
         json['metrics_analyzed'] as Map<String, dynamic>? ?? {},
       ),
+    );
+  }
+
+  factory TriageResult.fromPatient(PatientRecord p) {
+    double normal = 0.0;
+    double urgent = 0.0;
+    double emergency = 0.0;
+    
+    if (p.triageCategory == 'Emergency') {
+      emergency = p.confidence;
+      urgent = (100 - p.confidence) * 0.7;
+      normal = (100 - p.confidence) * 0.3;
+    } else if (p.triageCategory == 'Urgent') {
+      urgent = p.confidence;
+      emergency = (100 - p.confidence) * 0.4;
+      normal = (100 - p.confidence) * 0.6;
+    } else {
+      normal = p.confidence;
+      urgent = (100 - p.confidence) * 0.8;
+      emergency = (100 - p.confidence) * 0.2;
+    }
+    
+    String explanation = 'Baseline vital indicators and clinical narrative analysed.';
+    if (p.shockIndex >= 1.0) explanation += ' | Critical shock index observed.';
+    if (p.o2Sat < 94) explanation += ' | Low oxygen saturation detected.';
+    if (p.heartRate > 100) explanation += ' | Tachycardia detected.';
+    if (p.systolicBp < 90) explanation += ' | Hypotension detected.';
+    
+    return TriageResult(
+      triageCategory: p.triageCategory,
+      confidenceScore: p.confidence,
+      classProbabilities: ClassProbabilities(
+        normal: normal,
+        urgent: urgent,
+        emergency: emergency,
+      ),
+      clinicalExplanation: explanation,
+      metricsAnalyzed: MetricsAnalyzed(
+        shockIndex: p.shockIndex,
+        pulsePressureProxy: p.systolicBp * 0.4,
+        hypoxiaFlag: p.o2Sat <= 94,
+        tachycardiaFlag: p.heartRate > 100,
+        hypotensionFlag: p.systolicBp < 90,
+        elderlyRiskFlag: p.age > 65,
+        age: p.age.toDouble(),
+        engine: 'Phase 3 XGBoost Multimodal',
+      ),
+      patientName: p.name,
     );
   }
 }

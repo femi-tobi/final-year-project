@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_models.dart';
 import '../models/patient_models.dart';
+import '../models/triage_result.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'results_screen.dart';
 
 class LogsScreen extends StatefulWidget {
   final UserSession session;
@@ -243,84 +245,99 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 6),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultsScreen(
+                result: TriageResult.fromPatient(patient),
+                isViewOnly: true,
+              ),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Row(
-        children: [
-          // Name + ID
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  patient.name,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppColors.cardBorder),
+          ),
+          child: Row(
+            children: [
+              // Name + ID
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      patient.name,
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '#${patient.id}',
+                      style: const TextStyle(
+                        fontFamily: 'Inter',
+                        fontSize: 10,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Triage level
+              Expanded(
+                flex: 2,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: _levelColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    patient.acuityLevel,
+                    style: TextStyle(
+                      fontFamily: 'Inter',
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w700,
+                      color: _levelColor,
+                    ),
+                  ),
+                ),
+              ),
+              // Status badge
+              Expanded(
+                flex: 2,
+                child: _StatusBadge(status: patient.status),
+              ),
+              // Wait time or turnaround
+              Expanded(
+                flex: 2,
+                child: Text(
+                  patient.turnaroundMin != null
+                      ? '${patient.turnaroundMin}m'
+                      : '${patient.waitMinutes}m wait',
                   style: const TextStyle(
                     fontFamily: 'Inter',
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textPrimary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  '#${patient.id}',
-                  style: const TextStyle(
-                    fontFamily: 'Inter',
-                    fontSize: 10,
-                    color: AppColors.textMuted,
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
                   ),
                 ),
-              ],
-            ),
-          ),
-          // Triage level
-          Expanded(
-            flex: 2,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-              decoration: BoxDecoration(
-                color: _levelColor.withOpacity(0.15),
-                borderRadius: BorderRadius.circular(6),
               ),
-              child: Text(
-                patient.acuityLevel,
-                style: TextStyle(
-                  fontFamily: 'Inter',
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w700,
-                  color: _levelColor,
-                ),
-              ),
-            ),
+            ],
           ),
-          // Status badge
-          Expanded(
-            flex: 2,
-            child: _StatusBadge(status: patient.status),
-          ),
-          // Wait time or turnaround
-          Expanded(
-            flex: 2,
-            child: Text(
-              patient.turnaroundMin != null
-                  ? '${patient.turnaroundMin}m'
-                  : '${patient.waitMinutes}m wait',
-              style: const TextStyle(
-                fontFamily: 'Inter',
-                fontSize: 11,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

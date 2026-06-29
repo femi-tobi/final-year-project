@@ -6,9 +6,12 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_models.dart';
 import '../models/patient_models.dart';
+import '../models/triage_result.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'logs_screen.dart';
+import 'diagnostics_screen.dart';
+import 'results_screen.dart';
 import 'shared_dashboard_widgets.dart';
 
 class DoctorDashboard extends StatefulWidget {
@@ -81,6 +84,7 @@ class _DoctorDashboardState extends State<DoctorDashboard>
     switch (_navIndex) {
       case 0: return _buildQueuePage();
       case 1: return LogsScreen(session: widget.session);
+      case 2: return DiagnosticsScreen(session: widget.session);
       default: return _buildQueuePage();
     }
   }
@@ -109,6 +113,11 @@ class _DoctorDashboardState extends State<DoctorDashboard>
             icon: Icon(Icons.history_outlined),
             selectedIcon: Icon(Icons.history_rounded, color: Color(0xFF6366F1)),
             label: 'Case Logs',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.speed_outlined),
+            selectedIcon: Icon(Icons.speed_rounded, color: Color(0xFF6366F1)),
+            label: 'Diagnostics',
           ),
         ],
       ),
@@ -572,6 +581,17 @@ class _DoctorPatientCardState extends State<_DoctorPatientCard> {
     );
   }
 
+  void _viewTriageProfile() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ResultsScreen(
+          result: TriageResult.fromPatient(widget.patient),
+          isViewOnly: true,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = widget.patient;
@@ -760,6 +780,12 @@ class _DoctorPatientCardState extends State<_DoctorPatientCard> {
                     color: AppColors.urgent,
                     onTap: _showOverrideDialog,
                   )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _ActionButton(
+                    label: '📋  View Triage Profile',
+                    color: AppColors.clinicalTealLight,
+                    onTap: _viewTriageProfile,
+                  )),
                 ])
               : Column(children: [
                   _ActionButton(
@@ -772,6 +798,12 @@ class _DoctorPatientCardState extends State<_DoctorPatientCard> {
                     label: '⚡  Manual Override',
                     color: AppColors.urgent,
                     onTap: _showOverrideDialog,
+                  ),
+                  const SizedBox(height: 8),
+                  _ActionButton(
+                    label: '📋  View Triage Profile',
+                    color: AppColors.clinicalTealLight,
+                    onTap: _viewTriageProfile,
                   ),
                 ]),
       ]),

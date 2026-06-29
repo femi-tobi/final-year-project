@@ -7,7 +7,12 @@ import '../theme/app_theme.dart';
 
 class ResultsScreen extends StatefulWidget {
   final TriageResult result;
-  const ResultsScreen({super.key, required this.result});
+  final bool isViewOnly;
+  const ResultsScreen({
+    super.key,
+    required this.result,
+    this.isViewOnly = false,
+  });
 
   @override
   State<ResultsScreen> createState() => _ResultsScreenState();
@@ -553,6 +558,14 @@ class _ResultsScreenState extends State<ResultsScreen>
 
   // ─── Action Buttons ───────────────────────────────────────────────────────
   Widget _buildActionButtons(BuildContext context) {
+    if (widget.isViewOnly) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildBackButton(context),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -733,9 +746,9 @@ class _ResultsScreenState extends State<ResultsScreen>
     return OutlinedButton.icon(
       onPressed: () => Navigator.of(context).pop(),
       icon: const Icon(Icons.arrow_back_rounded, size: 18),
-      label: const Text(
-        'BACK TO INTAKE',
-        style: TextStyle(
+      label: Text(
+        widget.isViewOnly ? 'BACK TO DASHBOARD' : 'BACK TO INTAKE',
+        style: const TextStyle(
           fontFamily: 'Inter',
           fontWeight: FontWeight.w700,
           fontSize: 13,

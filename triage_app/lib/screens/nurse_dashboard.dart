@@ -6,11 +6,13 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_models.dart';
 import '../models/patient_models.dart';
+import '../models/triage_result.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
 import 'intake_screen.dart';
 import 'logs_screen.dart';
 import 'diagnostics_screen.dart';
+import 'results_screen.dart';
 import 'shared_dashboard_widgets.dart';
 
 class NurseDashboard extends StatefulWidget {
@@ -382,44 +384,60 @@ class _NursePendingTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.card,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultsScreen(
+                result: TriageResult.fromPatient(patient),
+                isViewOnly: true,
+              ),
+            ),
+          );
+        },
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _levelColor.withOpacity(0.3)),
-      ),
-      child: Row(children: [
-        AcuityBadge(level: patient.acuityLevel, size: 42),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(patient.name,
-                style: const TextStyle(
-                  fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                )),
-            const SizedBox(height: 3),
-            Text('${patient.age}y  ·  ${patient.chiefComplaint}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontFamily: 'Inter', fontSize: 11.5, color: AppColors.textSecondary,
-                )),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _levelColor.withOpacity(0.3)),
+          ),
+          child: Row(children: [
+            AcuityBadge(level: patient.acuityLevel, size: 42),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(patient.name,
+                    style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 14, fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    )),
+                const SizedBox(height: 3),
+                Text('${patient.age}y  ·  ${patient.chiefComplaint}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontFamily: 'Inter', fontSize: 11.5, color: AppColors.textSecondary,
+                    )),
+              ]),
+            ),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(
+                '${patient.waitMinutes}m',
+                style: TextStyle(
+                  fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w900,
+                  color: patient.waitMinutes > 20 ? AppColors.emergency : AppColors.textSecondary,
+                ),
+              ),
+              const Text('waiting',
+                  style: TextStyle(fontFamily: 'Inter', fontSize: 9, color: AppColors.textMuted)),
+            ]),
           ]),
         ),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(
-            '${patient.waitMinutes}m',
-            style: TextStyle(
-              fontFamily: 'Inter', fontSize: 18, fontWeight: FontWeight.w900,
-              color: patient.waitMinutes > 20 ? AppColors.emergency : AppColors.textSecondary,
-            ),
-          ),
-          const Text('waiting',
-              style: TextStyle(fontFamily: 'Inter', fontSize: 9, color: AppColors.textMuted)),
-        ]),
-      ]),
+      ),
     );
   }
 }

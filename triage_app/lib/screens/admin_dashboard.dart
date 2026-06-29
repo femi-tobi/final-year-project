@@ -8,8 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../models/auth_models.dart';
 import '../models/patient_models.dart';
+import '../models/triage_result.dart';
 import '../services/api_service.dart';
 import '../theme/app_theme.dart';
+import 'results_screen.dart';
 import 'shared_dashboard_widgets.dart';
 
 const Color _adminAccent = Color(0xFFF59E0B);
@@ -661,89 +663,105 @@ class _AdminPatientTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: pulseAnim,
-      builder: (_, child) {
-        final glow = _isCritical ? pulseAnim.value * 0.15 : 0.05;
-        return Container(
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _levelColor.withOpacity(_isCritical ? 0.5 : 0.25)),
-            boxShadow: [BoxShadow(color: _levelColor.withOpacity(glow), blurRadius: _isCritical ? 16 : 6)],
-          ),
-          child: child,
-        );
-      },
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Row(children: [
-          AcuityBadge(level: patient.acuityLevel, size: 42),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Flexible(
-                  child: Text(patient.name,
-                      style: const TextStyle(fontFamily: 'Inter', fontSize: 14,
-                          fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
-                ),
-                const SizedBox(width: 6),
-                Text('${patient.age}y',
-                    style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppColors.textMuted)),
-              ]),
-              const SizedBox(height: 4),
-              Text(patient.chiefComplaint,
-                  maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontFamily: 'Inter', fontSize: 11.5, color: AppColors.textSecondary)),
-              const SizedBox(height: 5),
-              Row(children: [
-                // Status pill
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _statusColor.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _statusColor.withOpacity(0.4)),
-                  ),
-                  child: Text(patient.status,
-                      style: TextStyle(fontFamily: 'Inter', fontSize: 9.5,
-                          fontWeight: FontWeight.w700, color: _statusColor)),
-                ),
-                // Bed name if assigned
-                if (patient.bedName != null) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.normalGreen.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: AppColors.normalGreen.withOpacity(0.35)),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => ResultsScreen(
+                result: TriageResult.fromPatient(patient),
+                isViewOnly: true,
+              ),
+            ),
+          );
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedBuilder(
+          animation: pulseAnim,
+          builder: (_, child) {
+            final glow = _isCritical ? pulseAnim.value * 0.15 : 0.05;
+            return Container(
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _levelColor.withOpacity(_isCritical ? 0.5 : 0.25)),
+                boxShadow: [BoxShadow(color: _levelColor.withOpacity(glow), blurRadius: _isCritical ? 16 : 6)],
+              ),
+              child: child,
+            );
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(children: [
+              AcuityBadge(level: patient.acuityLevel, size: 42),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Flexible(
+                      child: Text(patient.name,
+                          style: const TextStyle(fontFamily: 'Inter', fontSize: 14,
+                              fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
                     ),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.bed_rounded, size: 10, color: AppColors.normalGreen),
-                      const SizedBox(width: 4),
-                      Text(patient.bedName!,
-                          style: const TextStyle(fontFamily: 'Inter', fontSize: 9.5,
-                              fontWeight: FontWeight.w700, color: AppColors.normalGreen)),
-                    ]),
-                  ),
-                ],
+                    const SizedBox(width: 6),
+                    Text('${patient.age}y',
+                        style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppColors.textMuted)),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text(patient.chiefComplaint,
+                      maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontFamily: 'Inter', fontSize: 11.5, color: AppColors.textSecondary)),
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    // Status pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _statusColor.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _statusColor.withOpacity(0.4)),
+                      ),
+                      child: Text(patient.status,
+                          style: TextStyle(fontFamily: 'Inter', fontSize: 9.5,
+                              fontWeight: FontWeight.w700, color: _statusColor)),
+                    ),
+                    // Bed name if assigned
+                    if (patient.bedName != null) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppColors.normalGreen.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: AppColors.normalGreen.withOpacity(0.35)),
+                        ),
+                        child: Row(mainAxisSize: MainAxisSize.min, children: [
+                          const Icon(Icons.bed_rounded, size: 10, color: AppColors.normalGreen),
+                          const SizedBox(width: 4),
+                          Text(patient.bedName!,
+                              style: const TextStyle(fontFamily: 'Inter', fontSize: 9.5,
+                                  fontWeight: FontWeight.w700, color: AppColors.normalGreen)),
+                        ]),
+                      ),
+                    ],
+                  ]),
+                ]),
+              ),
+              // Wait time / confidence
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                if (patient.status == 'Waiting')
+                  Text('${patient.waitMinutes}m',
+                      style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w800,
+                          color: patient.waitMinutes > 15 ? AppColors.emergency : AppColors.textSecondary)),
+                Text('${patient.confidence.toStringAsFixed(0)}%',
+                    style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppColors.textMuted)),
+                const Text('conf.',
+                    style: TextStyle(fontFamily: 'Inter', fontSize: 9, color: AppColors.textMuted)),
               ]),
             ]),
           ),
-          // Wait time / confidence
-          Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-            if (patient.status == 'Waiting')
-              Text('${patient.waitMinutes}m',
-                  style: TextStyle(fontFamily: 'Inter', fontSize: 16, fontWeight: FontWeight.w800,
-                      color: patient.waitMinutes > 15 ? AppColors.emergency : AppColors.textSecondary)),
-            Text('${patient.confidence.toStringAsFixed(0)}%',
-                style: const TextStyle(fontFamily: 'Inter', fontSize: 11, color: AppColors.textMuted)),
-            const Text('conf.',
-                style: TextStyle(fontFamily: 'Inter', fontSize: 9, color: AppColors.textMuted)),
-          ]),
-        ]),
+        ),
       ),
     );
   }
